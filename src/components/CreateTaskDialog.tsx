@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { supabase, getCurrentUser } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/hooks/useAuth'
 
 interface CreateTaskDialogProps {
   open: boolean
@@ -29,16 +30,14 @@ export default function CreateTaskDialog({
   const [estimatePoints, setEstimatePoints] = useState('1')
   const [isPrivate, setIsPrivate] = useState(false)
   const [creating, setCreating] = useState(false)
+  const { user } = useAuth()
   const { toast } = useToast()
 
   const handleSubmit = async () => {
-    if (!title.trim() || !laneId) return
+    if (!title.trim() || !laneId || !user) return
 
     setCreating(true)
     try {
-      const user = await getCurrentUser()
-      if (!user) throw new Error('Not authenticated')
-
       const { error } = await supabase
         .from('tasks')
         .insert({
@@ -49,7 +48,7 @@ export default function CreateTaskDialog({
           estimate_points: parseInt(estimatePoints),
           is_private: isPrivate,
           creator_id: user.id,
-          position: 0 // TODO: Calculate proper position
+          position: 0
         })
 
       if (error) throw error

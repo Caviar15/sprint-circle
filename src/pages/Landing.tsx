@@ -3,8 +3,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle, Users, Zap, Shield, Kanban, Calendar, Target } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function Landing() {
+  const { user } = useAuth()
+  
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -25,12 +28,20 @@ export default function Landing() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button variant="hero" size="xl" asChild>
-              <Link to="/login">Start Your First Sprint</Link>
-            </Button>
-            <Button variant="outline" size="xl" asChild>
-              <Link to="/pricing">View Pricing</Link>
-            </Button>
+            {user ? (
+              <Button variant="hero" size="xl" asChild>
+                <Link to="/boards">Go to My Boards</Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="hero" size="xl" asChild>
+                  <Link to="/login">Start Your First Sprint</Link>
+                </Button>
+                <Button variant="outline" size="xl" asChild>
+                  <Link to="/pricing">View Pricing</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Feature Cards */}
@@ -161,9 +172,15 @@ export default function Landing() {
           <p className="text-lg text-muted-foreground mb-8">
             Join thousands of teams already using SprintWithFriends to stay organized and motivated.
           </p>
-          <Button variant="hero" size="xl" asChild>
-            <Link to="/login">Get Started Free</Link>
-          </Button>
+          {user ? (
+            <Button variant="hero" size="xl" asChild>
+              <Link to="/boards">View My Boards</Link>
+            </Button>
+          ) : (
+            <Button variant="hero" size="xl" asChild>
+              <Link to="/login">Get Started Free</Link>
+            </Button>
+          )}
         </div>
       </section>
     </div>

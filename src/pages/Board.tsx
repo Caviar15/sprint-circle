@@ -1,77 +1,55 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
+import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { supabase, getCurrentUser, type Board, type Lane, type Task } from '@/lib/supabase'
-import { Settings, Plus, Lock, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/hooks/useAuth'
+import { supabase, type Board, type Lane, type Task } from '@/lib/supabase'
 import BoardLane from '@/components/BoardLane'
 import TaskCard from '@/components/TaskCard'
 import CreateTaskDialog from '@/components/CreateTaskDialog'
+import { Plus, Users, Settings, Target } from 'lucide-react'
 
 export default function Board() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const { toast } = useToast()
-  
   const [board, setBoard] = useState<Board | null>(null)
   const [lanes, setLanes] = useState<Lane[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [currentUser, setCurrentUser] = useState<any>(null)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
-  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
-  const [createTaskLaneId, setCreateTaskLaneId] = useState<string | null>(null)
+  const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false)
+  const [selectedLaneId, setSelectedLaneId] = useState<string | null>(null)
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const sensors = useSensors(useSensor(PointerSensor))
 
   useEffect(() => {
-    if (id) {
+    if (id && user) {
       loadBoardData()
       setupRealtimeSubscription()
     }
-  }, [id])
+  }, [id, user])
 
   const loadBoardData = async () => {
+    if (!id || !user) return
+
     try {
-      const user = await getCurrentUser()
-      if (!user) {
-        navigate('/login')
-        return
-      }
-      setCurrentUser(user)
+      // Load board data using RLS
+      const [boardResult, lanesResult, tasksResult] = await Promise.all([
+        supabase.from('boards').select('*').eq('id', id).single(),
+        supabase.from('lanes').select('*').eq('board_id', id).order('position'),
+        supabase.from('tasks').select('*').eq('board_id', id).order('position')
+      ])
 
-      // Load board
-      const { data: boardData, error: boardError } = await supabase
-        .from('boards')
-        .select('*')
-        .eq('id', id)
-        .single()
+      if (boardResult.error) throw boardResult.error
+      if (lanesResult.error) throw lanesResult.error
+      if (tasksResult.error) throw tasksResult.error
 
-      if (boardError) throw boardError
-      setBoard(boardData)
-
-      // Load lanes
-      const { data: lanesData, error: lanesError } = await supabase
-        .from('lanes')
-        .select('*')
-        .eq('board_id', id)
-        .order('position')
-
-      if (lanesError) throw lanesError
-      setLanes(lanesData || [])
-
-      // Load tasks
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('board_id', id)
-        .order('position')
-
-      if (tasksError) throw tasksError
-      setTasks(tasksData || [])
+      setBoard(boardResult.data)
+      setLanes(lanesResult.data || [])
+      setTasks(tasksResult.data || [])
     } catch (error) {
       console.error('Error loading board:', error)
       toast({
@@ -85,16 +63,16 @@ export default function Board() {
   }
 
   const setupRealtimeSubscription = () => {
+    if (!id) return
+
     const channel = supabase
-      .channel(`board-${id}`)
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'tasks', filter: `board_id=eq.${id}` },
-        () => loadBoardData()
-      )
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'lanes', filter: `board_id=eq.${id}` },
-        () => loadBoardData()
-      )
+      .channel('board-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `board_id=eq.${id}` }, () => {
+        loadBoardData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lanes', filter: `board_id=eq.${id}` }, () => {
+        loadBoardData()
+      })
       .subscribe()
 
     return () => {
@@ -107,17 +85,19 @@ export default function Board() {
     setActiveTask(task || null)
   }
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
-    setActiveTask(null)
-
-    if (!over || active.id === over.id) return
-
-    const taskId = active.id as string
-    const newLaneId = over.id as string
+    
+    if (!over || !board || active.id === over.id) {
+      setActiveTask(null)
+      return
+    }
 
     try {
-      // Update task's lane
+      const taskId = active.id as string
+      const newLaneId = over.id as string
+      
+      // Update task lane
       const { error } = await supabase
         .from('tasks')
         .update({ lane_id: newLaneId })
@@ -129,34 +109,45 @@ export default function Board() {
       setTasks(prev => prev.map(task => 
         task.id === taskId ? { ...task, lane_id: newLaneId } : task
       ))
+
+      toast({
+        title: "Task moved",
+        description: "Task updated successfully"
+      })
     } catch (error) {
-      console.error('Error updating task:', error)
+      console.error('Error moving task:', error)
       toast({
         title: "Error",
         description: "Failed to move task",
         variant: "destructive"
       })
+      // Reload data on error
+      loadBoardData()
+    } finally {
+      setActiveTask(null)
     }
+  }, [board, toast])
+
+  const openCreateTaskDialog = (laneId: string) => {
+    setSelectedLaneId(laneId)
+    setCreateTaskDialogOpen(true)
   }
 
-  const openCreateTask = (laneId: string) => {
-    setCreateTaskLaneId(laneId)
-    setIsCreateTaskOpen(true)
+  const handleTaskCreated = () => {
+    loadBoardData()
   }
 
   const getToDoPoints = () => {
-    const toDoLane = lanes.find(lane => lane.name === 'To Do')
-    if (!toDoLane) return 0
-    
+    const todoLane = lanes.find(lane => lane.name === 'To Do')
+    if (!todoLane) return 0
     return tasks
-      .filter(task => task.lane_id === toDoLane.id)
+      .filter(task => task.lane_id === todoLane.id)
       .reduce((sum, task) => sum + (task.estimate_points || 0), 0)
   }
 
   const getRemainingPoints = () => {
-    const capacity = board?.sprint_capacity_points || 0
-    const inToDo = getToDoPoints()
-    return Math.max(0, capacity - inToDo)
+    if (!board) return 0
+    return Math.max(0, board.sprint_capacity_points - getToDoPoints())
   }
 
   if (loading) {
@@ -177,9 +168,7 @@ export default function Board() {
             <CardTitle>Board Not Found</CardTitle>
           </CardHeader>
           <CardContent>
-            <Button asChild>
-              <Link to="/boards">Back to Boards</Link>
-            </Button>
+            <p className="text-muted-foreground">The board you're looking for doesn't exist or you don't have access to it.</p>
           </CardContent>
         </Card>
       </div>
@@ -187,74 +176,86 @@ export default function Board() {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="h-screen flex flex-col">
       {/* Board Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{board.name}</h1>
-          <div className="flex items-center gap-4 mt-2">
-            <Badge variant="outline" className="gap-1">
-              <Users className="w-3 h-3" />
-              Private
-            </Badge>
-            <div className="text-sm text-muted-foreground">
-              <span className="font-medium">Committed:</span> {board.sprint_capacity_points} pts
+      <div className="border-b border-border bg-card/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold">{board.name}</h1>
+              <div className="flex items-center space-x-2">
+                <Badge variant="outline" className="gap-1">
+                  <Users className="w-3 h-3" />
+                  {board.visibility}
+                </Badge>
+                <Badge variant="outline" className="gap-1">
+                  <Target className="w-3 h-3" />
+                  Sprint: {board.sprint_capacity_points} pts
+                </Badge>
+                <Badge 
+                  variant={getToDoPoints() > board.sprint_capacity_points ? "destructive" : "secondary"}
+                  className="gap-1"
+                >
+                  Committed: {getToDoPoints()} pts
+                </Badge>
+                <Badge variant="outline" className="gap-1">
+                  Remaining: {getRemainingPoints()} pts
+                </Badge>
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              <span className="font-medium">In To Do:</span> {getToDoPoints()} pts
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <span className="font-medium">Remaining:</span> {getRemainingPoints()} pts
+            
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
             </div>
           </div>
         </div>
-        
-        <Button variant="outline" asChild>
-          <Link to={`/boards/${id}/settings`} className="gap-2">
-            <Settings className="w-4 h-4" />
-            Settings
-          </Link>
-        </Button>
       </div>
 
-      {/* Kanban Board */}
       <DndContext
-        collisionDetection={closestCorners}
+        sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {lanes.map((lane) => (
-            <BoardLane
-              key={lane.id}
-              lane={lane}
-              tasks={tasks.filter(task => task.lane_id === lane.id)}
-              currentUser={currentUser}
-              board={board}
-              onCreateTask={() => openCreateTask(lane.id)}
-            />
-          ))}
+        <div className="flex-1 overflow-x-auto">
+          <div className="flex gap-6 p-6 min-w-max">
+            {lanes.map((lane) => (
+              <div key={lane.id} className="w-80 flex-shrink-0">
+                <BoardLane
+                  lane={lane}
+                  tasks={tasks.filter(task => task.lane_id === lane.id)}
+                  currentUser={user}
+                  board={board}
+                  onCreateTask={() => openCreateTaskDialog(lane.id)}
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
+        {/* Task Creation Dialog */}
+        <CreateTaskDialog
+          open={createTaskDialogOpen}
+          onOpenChange={setCreateTaskDialogOpen}
+          boardId={board.id}
+          laneId={selectedLaneId}
+          onTaskCreated={handleTaskCreated}
+        />
+
+        {/* Drag Overlay */}
         <DragOverlay>
-          {activeTask && (
+          {activeTask ? (
             <TaskCard
               task={activeTask}
-              currentUser={currentUser}
+              currentUser={user}
               board={board}
-              isDragging={true}
+              isDragging
             />
-          )}
+          ) : null}
         </DragOverlay>
       </DndContext>
-
-      <CreateTaskDialog
-        open={isCreateTaskOpen}
-        onOpenChange={setIsCreateTaskOpen}
-        boardId={id!}
-        laneId={createTaskLaneId}
-        onTaskCreated={loadBoardData}
-      />
     </div>
   )
 }
