@@ -9,7 +9,6 @@ import PrivateRoute from "./components/PrivateRoute";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Boards from "./pages/Boards";
-import Board from "./pages/Board";
 import Account from "./pages/Account";
 import Pricing from "./pages/Pricing";
 import AcceptInvite from "./pages/AcceptInvite";
@@ -32,11 +31,6 @@ const App = () => (
               <Route path="/boards" element={
                 <PrivateRoute>
                   <Boards />
-                </PrivateRoute>
-              } />
-              <Route path="/boards/:boardId" element={
-                <PrivateRoute>
-                  <Board />
                 </PrivateRoute>
               } />
               <Route path="/account" element={
