@@ -26,32 +26,32 @@ export default function AcceptInvite() {
     }
 
     try {
-      // Get invite data with inviter information
-      const { data: invite, error: inviteError } = await supabase
-        .from('invites')
-        .select(`
-          *,
-          inviter:inviter_id (
-            id,
-            name
-          )
-        `)
-        .eq('token', token)
-        .eq('status', 'pending')
-        .single()
+      // Use the secure function to get invitation data
+      const { data: inviteData, error: inviteError } = await supabase.rpc('get_invitation_by_token', {
+        invitation_token: token
+      })
 
-      if (inviteError || !invite) {
+      if (inviteError || !inviteData || inviteData.length === 0) {
         setError('Invitation not found or has expired')
         return
       }
 
-      // Check if invitation has expired
-      if (new Date() > new Date(invite.expires_at)) {
-        setError('This invitation has expired')
-        return
+      const invite = inviteData[0]
+
+      // Get inviter information separately
+      const { data: inviter } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .eq('id', invite.inviter_id)
+        .single()
+
+      // Combine the data
+      const enrichedInvite = {
+        ...invite,
+        inviter: inviter
       }
 
-      setInviteData(invite)
+      setInviteData(enrichedInvite)
     } catch (error) {
       console.error('Error loading invite:', error)
       setError('Failed to load invitation')
