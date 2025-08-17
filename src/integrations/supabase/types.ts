@@ -226,7 +226,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_board_ids: {
+        Args: { user_uuid: string }
+        Returns: {
+          board_id: string
+        }[]
+      }
+      is_board_member: {
+        Args: { board_uuid: string; user_uuid: string }
+        Returns: boolean
+      }
+      is_board_owner: {
+        Args: { board_uuid: string; user_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
