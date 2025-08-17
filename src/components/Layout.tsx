@@ -1,42 +1,19 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { supabase, getCurrentUser, signOut } from '@/lib/supabase'
-import { User, Settings, LogOut, Kanban, Users, Zap } from 'lucide-react'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { User, LogOut, Kanban, Zap } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 interface LayoutProps {
   children: React.ReactNode
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const [user, setUser] = useState<SupabaseUser | null>(null)
-  const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    // Get initial session
-    getCurrentUser().then(user => {
-      setUser(user)
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null)
-        setLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [])
+  const { user, loading, signOut } = useAuth()
 
   const handleSignOut = async () => {
     await signOut()
-    navigate('/login')
   }
 
   if (loading) {

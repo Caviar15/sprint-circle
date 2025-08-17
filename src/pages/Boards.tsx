@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { supabase, getCurrentUser, type Board } from '@/lib/supabase'
+import { supabase, type Board } from '@/lib/supabase'
 import { Plus, Users, Settings, Calendar } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function Boards() {
   const [boards, setBoards] = useState<Board[]>([])
@@ -15,29 +16,24 @@ export default function Boards() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newBoardName, setNewBoardName] = useState('')
   const [creating, setCreating] = useState(false)
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const { toast } = useToast()
 
   useEffect(() => {
-    loadBoards()
-  }, [])
+    if (user) {
+      loadBoards()
+    }
+  }, [user])
 
   const loadBoards = async () => {
+    if (!user) return
+    
     try {
-      const user = await getCurrentUser()
-      if (!user) {
-        navigate('/login')
-        return
-      }
-
-      // Get boards where user is owner or member
+      // Get boards where user is owner or member - using RLS
       const { data: userBoards, error: boardsError } = await supabase
         .from('boards')
-        .select(`
-          *,
-          board_members!inner(role)
-        `)
-        .or(`owner_id.eq.${user.id},board_members.user_id.eq.${user.id}`)
+        .select('*')
+        .order('created_at', { ascending: false })
 
       if (boardsError) throw boardsError
 
@@ -55,14 +51,11 @@ export default function Boards() {
   }
 
   const createBoard = async () => {
-    if (!newBoardName.trim()) return
+    if (!newBoardName.trim() || !user) return
 
     setCreating(true)
     try {
-      const user = await getCurrentUser()
-      if (!user) throw new Error('Not authenticated')
-
-      // Create board
+      // Create board - triggers will handle lanes and board_members
       const { data: board, error: boardError } = await supabase
         .from('boards')
         .insert({
@@ -75,37 +68,6 @@ export default function Boards() {
         .single()
 
       if (boardError) throw boardError
-
-      // Create default lanes
-      const defaultLanes = [
-        { name: 'Backlog', position: 0 },
-        { name: 'To Do', position: 1 },
-        { name: 'In Progress', position: 2 },
-        { name: 'Done', position: 3 }
-      ]
-
-      const { error: lanesError } = await supabase
-        .from('lanes')
-        .insert(
-          defaultLanes.map(lane => ({
-            board_id: board.id,
-            name: lane.name,
-            position: lane.position
-          }))
-        )
-
-      if (lanesError) throw lanesError
-
-      // Add owner as board member
-      const { error: memberError } = await supabase
-        .from('board_members')
-        .insert({
-          board_id: board.id,
-          user_id: user.id,
-          role: 'owner'
-        })
-
-      if (memberError) throw memberError
 
       toast({
         title: "Success",

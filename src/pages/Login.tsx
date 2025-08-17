@@ -1,44 +1,30 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { supabase, signInWithEmail, getCurrentUser } from '@/lib/supabase'
 import { Mail, Zap, CheckCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const { user, signInWithEmail } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const { toast } = useToast()
 
+  const from = location.state?.from?.pathname || '/boards'
+
   useEffect(() => {
-    // Check if user is already logged in
-    getCurrentUser().then(user => {
-      if (user) {
-        navigate('/boards')
-      }
-    })
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          toast({
-            title: "Welcome back!",
-            description: "You've been successfully signed in.",
-          })
-          navigate('/boards')
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [navigate, toast])
+    if (user) {
+      navigate(from, { replace: true })
+    }
+  }, [user, navigate, from])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
