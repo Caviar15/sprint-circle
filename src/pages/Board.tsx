@@ -11,7 +11,8 @@ import type { Board, Lane, Task } from '@/lib/types'
 import BoardLane from '@/components/BoardLane'
 import TaskCard from '@/components/TaskCard'
 import CreateTaskDialog from '@/components/CreateTaskDialog'
-import { Plus, Users, Settings, Target } from 'lucide-react'
+import InviteMemberDialog from '@/components/InviteMemberDialog'
+import { Plus, Users, Settings, Target, UserPlus } from 'lucide-react'
 
 export default function Board() {
   const { id } = useParams<{ id: string }>()
@@ -22,6 +23,7 @@ export default function Board() {
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false)
   const [selectedLaneId, setSelectedLaneId] = useState<string | null>(null)
+  const [inviteMemberDialogOpen, setInviteMemberDialogOpen] = useState(false)
   const { user } = useAuth()
   const { toast } = useToast()
   const sensors = useSensors(useSensor(PointerSensor))
@@ -206,6 +208,14 @@ export default function Board() {
             </div>
             
             <div className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setInviteMemberDialogOpen(true)}
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Invite
+              </Button>
               <Button variant="outline" size="sm">
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
@@ -243,6 +253,13 @@ export default function Board() {
           boardId={board.id}
           laneId={selectedLaneId}
           onTaskCreated={handleTaskCreated}
+        />
+
+        {/* Invite Member Dialog */}
+        <InviteMemberDialog
+          open={inviteMemberDialogOpen}
+          onOpenChange={setInviteMemberDialogOpen}
+          boardId={board.id}
         />
 
         {/* Drag Overlay */}
