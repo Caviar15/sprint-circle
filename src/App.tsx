@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import PrivateRoute from "./components/PrivateRoute";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import Boards from "./pages/Boards";
 import Board from "./pages/Board";
 import Account from "./pages/Account";
 import Pricing from "./pages/Pricing";
@@ -29,6 +30,11 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/boards" element={
+                <PrivateRoute>
+                  <Boards />
+                </PrivateRoute>
+              } />
+              <Route path="/boards/:boardId" element={
                 <PrivateRoute>
                   <Board />
                 </PrivateRoute>
