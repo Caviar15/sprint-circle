@@ -12,6 +12,7 @@ import BoardLane from '@/components/BoardLane'
 import TaskCard from '@/components/TaskCard'
 import CreateTaskDialog from '@/components/CreateTaskDialog'
 import InviteMemberDialog from '@/components/InviteMemberDialog'
+import CreateBoardDialog from '@/components/CreateBoardDialog'
 import { Plus, Users, Settings, Target, UserPlus } from 'lucide-react'
 
 export default function Board() {
@@ -23,6 +24,7 @@ export default function Board() {
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false)
   const [selectedLaneId, setSelectedLaneId] = useState<string | null>(null)
   const [inviteMemberDialogOpen, setInviteMemberDialogOpen] = useState(false)
+  const [createBoardDialogOpen, setCreateBoardDialogOpen] = useState(false)
   const { user } = useAuth()
   const { toast } = useToast()
   const sensors = useSensors(useSensor(PointerSensor))
@@ -59,10 +61,9 @@ export default function Board() {
       
       if (!personalBoard) {
         console.warn('No personal board found for user:', user.id)
-        toast({
-          title: "No Board Found",
-          description: "Creating your personal board...",
-        })
+        // Open dialog to create board
+        setCreateBoardDialogOpen(true)
+        setLoading(false)
         return
       }
       
@@ -222,6 +223,11 @@ export default function Board() {
     loadBoardData()
   }
 
+  const handleBoardCreated = () => {
+    setCreateBoardDialogOpen(false)
+    loadBoardData()
+  }
+
   const getToDoPoints = () => {
     const todoLane = lanes.find(lane => lane.name === 'To Do')
     if (!todoLane) return 0
@@ -337,6 +343,13 @@ export default function Board() {
           open={inviteMemberDialogOpen}
           onOpenChange={setInviteMemberDialogOpen}
           boardId={board.id}
+        />
+
+        {/* Create Board Dialog */}
+        <CreateBoardDialog
+          open={createBoardDialogOpen}
+          onOpenChange={setCreateBoardDialogOpen}
+          onBoardCreated={handleBoardCreated}
         />
 
         {/* Drag Overlay */}
