@@ -43,21 +43,42 @@ export default function Board() {
     if (!user) return
 
     try {
+      console.log('Loading board data for user:', user.id)
+      
       // Get user's personal board (or the board they're viewing if it's their own)
       const { data: personalBoard, error: boardError } = await supabase
         .from('boards')
         .select('*')
         .eq('owner_id', user.id)
-        .single()
+        .maybeSingle()
 
-      if (boardError) throw boardError
+      if (boardError) {
+        console.error('Board error:', boardError)
+        throw boardError
+      }
+      
+      if (!personalBoard) {
+        console.warn('No personal board found for user:', user.id)
+        toast({
+          title: "No Board Found",
+          description: "Creating your personal board...",
+        })
+        return
+      }
+      
+      console.log('Found board:', personalBoard)
       setBoard(personalBoard)
 
       // Get connected users to fetch their tasks too
       const { data: connectedUsers, error: connectionsError } = await supabase
         .rpc('get_connected_users', { user_uuid: user.id })
 
-      if (connectionsError) throw connectionsError
+      if (connectionsError) {
+        console.error('Connections error:', connectionsError)
+        throw connectionsError
+      }
+
+      console.log('Connected users:', connectedUsers)
 
       // Get all user IDs (current user + connected users)
       const allUserIds = [user.id, ...(connectedUsers?.map(c => c.connected_user_id) || [])]
@@ -77,7 +98,12 @@ export default function Board() {
         .eq('board_id', personalBoard.id)
         .order('position')
 
-      if (tasksError) throw tasksError
+      if (tasksError) {
+        console.error('Tasks error:', tasksError)
+        throw tasksError
+      }
+      
+      console.log('Found tasks:', allTasks)
       setTasks(allTasks || [])
 
       // Get lanes for the personal board
@@ -87,7 +113,12 @@ export default function Board() {
         .eq('board_id', personalBoard.id)
         .order('position')
 
-      if (lanesError) throw lanesError
+      if (lanesError) {
+        console.error('Lanes error:', lanesError)
+        throw lanesError
+      }
+      
+      console.log('Found lanes:', boardLanes)
       setLanes(boardLanes || [])
 
     } catch (error) {
