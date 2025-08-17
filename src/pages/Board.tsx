@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,6 @@ import InviteMemberDialog from '@/components/InviteMemberDialog'
 import { Plus, Users, Settings, Target, UserPlus } from 'lucide-react'
 
 export default function Board() {
-  const { id } = useParams<{ id: string }>()
   const [board, setBoard] = useState<Board | null>(null)
   const [lanes, setLanes] = useState<Lane[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
@@ -29,11 +28,16 @@ export default function Board() {
   const sensors = useSensors(useSensor(PointerSensor))
 
   useEffect(() => {
-    if (id && user) {
+    if (user) {
       loadBoardData()
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (board) {
       setupRealtimeSubscription()
     }
-  }, [id, user])
+  }, [board])
 
   const loadBoardData = async () => {
     if (!user) return
@@ -99,14 +103,14 @@ export default function Board() {
   }
 
   const setupRealtimeSubscription = () => {
-    if (!id) return
+    if (!board) return
 
     const channel = supabase
       .channel('board-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `board_id=eq.${id}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `board_id=eq.${board.id}` }, () => {
         loadBoardData()
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lanes', filter: `board_id=eq.${id}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lanes', filter: `board_id=eq.${board.id}` }, () => {
         loadBoardData()
       })
       .subscribe()
