@@ -1,10 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = 'https://fbbrlmokqmcglhmstfod.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZiYnJsbW9rcW1jZ2xobXN0Zm9kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNjUxMzIsImV4cCI6MjA3MDk0MTEzMn0.1mqStFmmoI-33Fq7WIH72U_jm8ud2gM7Rx8nKEBkS8M'
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
 // Database types
 export interface Profile {
   id: string
@@ -17,7 +10,7 @@ export interface Board {
   id: string
   owner_id: string
   name: string
-  visibility: 'private' | 'friends' | 'public'
+  visibility: string
   sprint_capacity_points: number
   created_at: string
 }
@@ -60,18 +53,4 @@ export interface Invite {
   status: 'pending' | 'accepted' | 'declined' | 'expired'
   expires_at: string
   created_at: string
-}
-
-// Auth helpers
-export const getCurrentUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
-
-export const signOut = async () => {
-  await supabase.auth.signOut()
-}
-
-export const signInWithEmail = async (email: string) => {
-  return await supabase.auth.signInWithOtp({ email })
 }

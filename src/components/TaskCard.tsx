@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Lock } from 'lucide-react'
-import { type Task, type Board } from '@/lib/supabase'
+import type { Task, Board } from '@/lib/types'
 
 interface TaskCardProps {
   task: Task

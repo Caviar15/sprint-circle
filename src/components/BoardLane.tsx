@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Plus } from 'lucide-react'
-import { type Lane, type Task, type Board } from '@/lib/supabase'
+import type { Lane, Task, Board } from '@/lib/types'
 import TaskCard from './TaskCard'
 
 interface BoardLaneProps {
