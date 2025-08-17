@@ -107,7 +107,6 @@ export default function Boards() {
         );
 
         if (connectionsError) {
-          // If your RPC isn't deployed yet, we gracefully fallback to just self.
           console.warn("get_connected_users RPC failed; falling back to self-only:", connectionsError);
         }
 
@@ -116,7 +115,16 @@ export default function Boards() {
           ...((connectedUsers?.map((c: any) => c.connected_user_id) as string[]) || []),
         ];
 
-        // Fetch all tasks from connected users' boards (not just current board)
+        // Fetch lanes for current user's board
+        const { data: boardLanes, error: lanesError } = await supabase
+          .from("lanes")
+          .select("*")
+          .eq("board_id", activeBoard.id)
+          .order("position", { ascending: true });
+
+        if (lanesError) throw lanesError;
+
+        // Fetch all tasks from connected users and their lane names
         const { data: allTasks, error: tasksError } = await supabase
           .from("tasks")
           .select(`
@@ -125,21 +133,21 @@ export default function Boards() {
               id,
               name,
               avatar_url
+            ),
+            lanes!inner (
+              name
             )
           `)
           .in("creator_id", allUserIds)
           .order("position", { ascending: true });
 
-        if (tasksError) throw tasksError;
+        if (tasksError) {
+          console.error("Tasks query error:", tasksError);
+          throw tasksError;
+        }
 
-        // Fetch lanes
-        const { data: boardLanes, error: lanesError } = await supabase
-          .from("lanes")
-          .select("*")
-          .eq("board_id", activeBoard.id)
-          .order("position", { ascending: true });
-
-        if (lanesError) throw lanesError;
+        console.log("Loaded tasks:", allTasks?.length || 0);
+        console.log("Loaded lanes:", boardLanes?.length || 0);
 
         if (!mounted.current) return;
         setTasks(allTasks || []);
@@ -158,6 +166,7 @@ export default function Boards() {
     },
     [toast, user]
   );
+
 
   /**
    * On user available: ensure board exists & load it.
@@ -269,10 +278,11 @@ export default function Boards() {
   };
 
   const getToDoPoints = () => {
-    const todoLane = lanes.find((lane) => lane.name === "To Do");
-    if (!todoLane) return 0;
     return tasks
-      .filter((task) => task.lane_id === todoLane.id)
+      .filter((task) => {
+        const taskLaneName = (task as any).lanes?.name;
+        return taskLaneName === "To Do";
+      })
       .reduce((sum, task) => sum + (task.estimate_points || 0), 0);
   };
 
@@ -368,7 +378,12 @@ export default function Boards() {
               <div key={lane.id} className="w-80 flex-shrink-0">
                 <BoardLane
                   lane={lane}
-                  tasks={tasks.filter((task) => task.lane_id === lane.id)}
+                  tasks={tasks.filter((task) => {
+                    // Map tasks to lanes by name instead of ID
+                    // This allows connected users' tasks to appear in the right lanes
+                    const taskLaneName = (task as any).lanes?.name;
+                    return taskLaneName === lane.name;
+                  })}
                   currentUser={user}
                   board={board}
                   onCreateTask={() => openCreateTaskDialog(lane.id)}
