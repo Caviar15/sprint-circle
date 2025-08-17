@@ -14,13 +14,18 @@ interface TaskCardProps {
 }
 
 export default function TaskCard({ task, currentUser, board, isDragging = false }: TaskCardProps) {
+  const isCreator = task.creator_id === currentUser?.id
+  
   const {
     attributes,
     listeners,
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ id: task.id })
+  } = useSortable({ 
+    id: task.id,
+    disabled: !isCreator // Only creator can drag their tasks
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -29,9 +34,7 @@ export default function TaskCard({ task, currentUser, board, isDragging = false 
 
   // Privacy masking logic
   const isPrivate = task.is_private
-  const canViewPrivateTask = !isPrivate || 
-    task.creator_id === currentUser?.id || 
-    board.owner_id === currentUser?.id
+  const canViewPrivateTask = !isPrivate || isCreator
 
   const displayTitle = canViewPrivateTask ? task.title : 'Private task'
   const displayDescription = canViewPrivateTask ? task.description : null
@@ -40,11 +43,13 @@ export default function TaskCard({ task, currentUser, board, isDragging = false 
     <Card
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className={`cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
-        isDragging ? 'shadow-lg rotate-2' : ''
-      } ${!canViewPrivateTask ? 'bg-muted/50' : ''}`}
+      {...(isCreator ? attributes : {})}
+      {...(isCreator ? listeners : {})}
+      className={`transition-shadow ${
+        isCreator 
+          ? "cursor-grab active:cursor-grabbing hover:shadow-md" 
+          : "cursor-default opacity-80 bg-muted/30 border-dashed"
+      } ${isDragging ? 'shadow-lg rotate-2' : ''} ${!canViewPrivateTask ? 'bg-muted/50' : ''}`}
     >
       <CardContent className="p-3">
         <div className="space-y-2">
@@ -57,6 +62,11 @@ export default function TaskCard({ task, currentUser, board, isDragging = false 
             <div className="flex items-center gap-1 flex-shrink-0">
               {isPrivate && (
                 <Lock className="w-3 h-3 text-muted-foreground" />
+              )}
+              {!isCreator && (
+                <Badge variant="outline" className="text-xs h-5">
+                  Friend's Task
+                </Badge>
               )}
               {task.estimate_points && task.estimate_points > 0 && (
                 <Badge variant="secondary" className="text-xs h-5">

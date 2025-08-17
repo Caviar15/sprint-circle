@@ -12,6 +12,7 @@ import Boards from "./pages/Boards";
 import Board from "./pages/Board";
 import Account from "./pages/Account";
 import Pricing from "./pages/Pricing";
+import AcceptInvite from "./pages/AcceptInvite";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
                   <Account />
                 </PrivateRoute>
               } />
+              <Route path="/invite/:token" element={<AcceptInvite />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

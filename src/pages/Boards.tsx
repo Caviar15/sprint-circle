@@ -1,202 +1,44 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { supabase } from '@/integrations/supabase/client'
-import type { Board } from '@/lib/types'
-import { Plus, Users, Settings, Calendar } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/integrations/supabase/client'
 
 export default function Boards() {
-  const [boards, setBoards] = useState<Board[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [newBoardName, setNewBoardName] = useState('')
-  const [creating, setCreating] = useState(false)
+  const navigate = useNavigate()
   const { user } = useAuth()
-  const { toast } = useToast()
 
   useEffect(() => {
-    if (user) {
-      loadBoards()
+    const redirectToPersonalBoard = async () => {
+      if (!user) return
+
+      try {
+        // Get user's personal board
+        const { data: personalBoard, error } = await supabase
+          .from('boards')
+          .select('id')
+          .eq('owner_id', user.id)
+          .single()
+
+        if (error) throw error
+
+        // Redirect to personal board
+        navigate(`/boards/${personalBoard.id}`, { replace: true })
+      } catch (error) {
+        console.error('Error finding personal board:', error)
+        // If no personal board found, this should not happen with the new user trigger
+        // but as fallback, stay on this page
+      }
     }
-  }, [user])
 
-  const loadBoards = async () => {
-    if (!user) return
-    
-    try {
-      // Get boards where user is owner or member - using RLS
-      const { data: userBoards, error: boardsError } = await supabase
-        .from('boards')
-        .select('*')
-        .order('created_at', { ascending: false })
+    redirectToPersonalBoard()
+  }, [user, navigate])
 
-      if (boardsError) throw boardsError
-
-      setBoards(userBoards || [])
-    } catch (error) {
-      console.error('Error loading boards:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load boards",
-        variant: "destructive"
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const createBoard = async () => {
-    if (!newBoardName.trim() || !user) return
-
-    setCreating(true)
-    try {
-      // Create board - triggers will handle lanes and board_members
-      const { data: board, error: boardError } = await supabase
-        .from('boards')
-        .insert({
-          name: newBoardName.trim(),
-          owner_id: user.id,
-          visibility: 'private',
-          sprint_capacity_points: 20
-        })
-        .select()
-        .single()
-
-      if (boardError) throw boardError
-
-      toast({
-        title: "Success",
-        description: "Board created successfully"
-      })
-
-      setIsCreateDialogOpen(false)
-      setNewBoardName('')
-      loadBoards()
-    } catch (error) {
-      console.error('Error creating board:', error)
-      toast({
-        title: "Error",
-        description: "Failed to create board",
-        variant: "destructive"
-      })
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </div>
-    )
-  }
-
+  // Show loading while redirecting
   return (
     <div className="container mx-auto py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Boards</h1>
-          <p className="text-muted-foreground">Manage your sprint boards and collaborate with friends</p>
-        </div>
-        
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Create Board
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Board</DialogTitle>
-              <DialogDescription>
-                Create a new sprint board to organize your tasks and collaborate with friends.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="boardName">Board Name</Label>
-                <Input
-                  id="boardName"
-                  value={newBoardName}
-                  onChange={(e) => setNewBoardName(e.target.value)}
-                  placeholder="Enter board name..."
-                  onKeyDown={(e) => e.key === 'Enter' && createBoard()}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={createBoard} disabled={creating || !newBoardName.trim()}>
-                {creating ? 'Creating...' : 'Create Board'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
-
-      {boards.length === 0 ? (
-        <Card className="text-center py-12">
-          <CardHeader>
-            <CardTitle>No boards yet</CardTitle>
-            <CardDescription>
-              Create your first board to start organizing your sprints with friends
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Create Your First Board
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {boards.map((board) => (
-            <Card key={board.id} className="hover:shadow-md transition-shadow cursor-pointer group">
-              <Link to={`/boards/${board.id}`}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="group-hover:text-primary transition-colors">
-                      {board.name}
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Link
-                        to={`/boards/${board.id}/settings`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded"
-                      >
-                        <Settings className="w-4 h-4" />
-                      </Link>
-                    </div>
-                  </div>
-                  <CardDescription className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      <span>Private</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>{board.sprint_capacity_points} pts capacity</span>
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-              </Link>
-            </Card>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

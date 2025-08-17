@@ -36,23 +36,56 @@ export default function Board() {
   }, [id, user])
 
   const loadBoardData = async () => {
-    if (!id || !user) return
+    if (!user) return
 
     try {
-      // Load board data using RLS
-      const [boardResult, lanesResult, tasksResult] = await Promise.all([
-        supabase.from('boards').select('*').eq('id', id).single(),
-        supabase.from('lanes').select('*').eq('board_id', id).order('position'),
-        supabase.from('tasks').select('*').eq('board_id', id).order('position')
-      ])
+      // Get user's personal board (or the board they're viewing if it's their own)
+      const { data: personalBoard, error: boardError } = await supabase
+        .from('boards')
+        .select('*')
+        .eq('owner_id', user.id)
+        .single()
 
-      if (boardResult.error) throw boardResult.error
-      if (lanesResult.error) throw lanesResult.error
-      if (tasksResult.error) throw tasksResult.error
+      if (boardError) throw boardError
+      setBoard(personalBoard)
 
-      setBoard(boardResult.data)
-      setLanes(lanesResult.data || [])
-      setTasks(tasksResult.data || [])
+      // Get connected users to fetch their tasks too
+      const { data: connectedUsers, error: connectionsError } = await supabase
+        .rpc('get_connected_users', { user_uuid: user.id })
+
+      if (connectionsError) throw connectionsError
+
+      // Get all user IDs (current user + connected users)
+      const allUserIds = [user.id, ...(connectedUsers?.map(c => c.connected_user_id) || [])]
+
+      // Fetch tasks from current user and all connected users
+      const { data: allTasks, error: tasksError } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          creator:creator_id (
+            id,
+            name,
+            avatar_url
+          )
+        `)
+        .in('creator_id', allUserIds)
+        .eq('board_id', personalBoard.id)
+        .order('position')
+
+      if (tasksError) throw tasksError
+      setTasks(allTasks || [])
+
+      // Get lanes for the personal board
+      const { data: boardLanes, error: lanesError } = await supabase
+        .from('lanes')
+        .select('*')
+        .eq('board_id', personalBoard.id)
+        .order('position')
+
+      if (lanesError) throw lanesError
+      setLanes(boardLanes || [])
+
     } catch (error) {
       console.error('Error loading board:', error)
       toast({
@@ -96,6 +129,19 @@ export default function Board() {
       return
     }
 
+    const task = tasks.find(t => t.id === active.id)
+    
+    // Only allow task creator to move their tasks
+    if (!task || task.creator_id !== user?.id) {
+      setActiveTask(null)
+      toast({
+        title: "Permission denied",
+        description: "You can only move your own tasks",
+        variant: "destructive"
+      })
+      return
+    }
+
     try {
       const taskId = active.id as string
       const newLaneId = over.id as string
@@ -105,6 +151,7 @@ export default function Board() {
         .from('tasks')
         .update({ lane_id: newLaneId })
         .eq('id', taskId)
+        .eq('creator_id', user.id) // Additional security check
 
       if (error) throw error
 
@@ -129,7 +176,7 @@ export default function Board() {
     } finally {
       setActiveTask(null)
     }
-  }, [board, toast])
+  }, [board, tasks, user, toast, loadBoardData])
 
   const openCreateTaskDialog = (laneId: string) => {
     setSelectedLaneId(laneId)
@@ -185,12 +232,8 @@ export default function Board() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold">{board.name}</h1>
+              <h1 className="text-2xl font-bold">My Personal Board</h1>
               <div className="flex items-center space-x-2">
-                <Badge variant="outline" className="gap-1">
-                  <Users className="w-3 h-3" />
-                  {board.visibility}
-                </Badge>
                 <Badge variant="outline" className="gap-1">
                   <Target className="w-3 h-3" />
                   Sprint: {board.sprint_capacity_points} pts
@@ -214,14 +257,13 @@ export default function Board() {
                 onClick={() => setInviteMemberDialogOpen(true)}
               >
                 <UserPlus className="w-4 h-4 mr-2" />
-                Invite
-              </Button>
-              <Button variant="outline" size="sm">
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
+                Connect with Friend
               </Button>
             </div>
           </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            Your personal workspace. Tasks from connected friends appear read-only.
+          </p>
         </div>
       </div>
 

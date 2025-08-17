@@ -221,11 +221,51 @@ export type Database = {
           },
         ]
       }
+      user_connections: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          id: string
+          invited_by: string
+          status: string
+          user1_id: string
+          user2_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          invited_by: string
+          status?: string
+          user1_id: string
+          user2_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          invited_by?: string
+          status?: string
+          user1_id?: string
+          user2_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      are_users_connected: {
+        Args: { user1_uuid: string; user2_uuid: string }
+        Returns: boolean
+      }
+      get_connected_users: {
+        Args: { user_uuid: string }
+        Returns: {
+          connected_user_id: string
+        }[]
+      }
       get_user_board_ids: {
         Args: { user_uuid: string }
         Returns: {

@@ -47,11 +47,11 @@ export default function InviteMemberDialog({ open, onOpenChange, boardId }: Invi
       // Generate a unique invitation token
       const token = crypto.randomUUID()
 
-      // Insert invitation into database
+      // Create user connection invitation
       const { error } = await supabase
         .from('invites')
         .insert({
-          board_id: boardId,
+          board_id: boardId, // Keep for backward compatibility
           invited_email: email.trim().toLowerCase(),
           token,
           status: 'pending'
@@ -107,37 +107,27 @@ export default function InviteMemberDialog({ open, onOpenChange, boardId }: Invi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="w-5 h-5" />
-            Invite Member
+            Connect with Friend
           </DialogTitle>
           <DialogDescription>
-            Send an invitation to collaborate on this board
+            Connect directly with a friend to share tasks. You'll see each other's tasks in your personal boards.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
+            <Label htmlFor="email">Friend's Email Address</Label>
             <Input
               id="email"
               type="email"
-              placeholder="Enter email address"
+              placeholder="Enter your friend's email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
-            <Select value={role} onValueChange={(value: 'editor' | 'viewer') => setRole(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="editor">Editor - Can create and edit tasks</SelectItem>
-                <SelectItem value="viewer">Viewer - Can only view the board</SelectItem>
-              </SelectContent>
-            </Select>
+            <p className="text-sm text-muted-foreground">
+              Your friend will see your tasks (read-only) and you'll see theirs. This creates a direct 1-on-1 connection.
+            </p>
           </div>
 
           <DialogFooter>
@@ -151,7 +141,7 @@ export default function InviteMemberDialog({ open, onOpenChange, boardId }: Invi
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Send Invitation
+              Send Connection Request
             </Button>
           </DialogFooter>
         </form>

@@ -52,9 +52,8 @@ const handler = async (req: Request): Promise<Response> => {
     // Create invitation link
     const inviteUrl = `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'vercel.app') || 'https://your-app.vercel.app'}/invite/${token}`
 
-    console.log(`Invitation created for ${email} to join board "${board.name}"`)
+    console.log(`Connection request created for ${email}`)
     console.log(`Invitation URL: ${inviteUrl}`)
-    console.log(`Role: ${role}`)
     console.log(`Inviter: ${inviter?.name || 'Unknown'}`)
 
     // For now, we'll just log the invitation details
