@@ -116,21 +116,18 @@ export default function Boards() {
           ...((connectedUsers?.map((c: any) => c.connected_user_id) as string[]) || []),
         ];
 
-        // Fetch tasks for board from current + connected users
+        // Fetch all tasks from connected users' boards (not just current board)
         const { data: allTasks, error: tasksError } = await supabase
           .from("tasks")
-          .select(
-            `
+          .select(`
             *,
-            creator:creator_id (
+            profiles!creator_id (
               id,
               name,
               avatar_url
             )
-          `
-          )
+          `)
           .in("creator_id", allUserIds)
-          .eq("board_id", activeBoard.id)
           .order("position", { ascending: true });
 
         if (tasksError) throw tasksError;
