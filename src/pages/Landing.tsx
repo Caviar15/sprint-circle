@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -7,6 +8,14 @@ import { useAuth } from '@/hooks/useAuth'
 
 export default function Landing() {
   const { user } = useAuth()
+  const navigate = useNavigate()
+
+  // Redirect authenticated users directly to their board
+  useEffect(() => {
+    if (user) {
+      navigate('/boards', { replace: true })
+    }
+  }, [user, navigate])
   
   return (
     <div className="min-h-screen">

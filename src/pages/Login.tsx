@@ -18,13 +18,12 @@ export default function Login() {
   const location = useLocation()
   const { toast } = useToast()
 
-  const from = location.state?.from?.pathname || '/boards'
-
+  // Redirect authenticated users directly to their board
   useEffect(() => {
     if (user) {
-      navigate(from, { replace: true })
+      navigate('/boards', { replace: true })
     }
-  }, [user, navigate, from])
+  }, [user, navigate])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
