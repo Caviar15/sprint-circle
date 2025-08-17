@@ -125,16 +125,18 @@ export default function Boards() {
         if (lanesError) throw lanesError;
 
         // Fetch all tasks from connected users and their lane names
+        // CRITICAL FIX: Use LEFT JOIN (lanes) instead of INNER JOIN (lanes!inner)
+        // This ensures connected users' tasks aren't filtered out
         const { data: allTasks, error: tasksError } = await supabase
           .from("tasks")
           .select(`
             *,
-            profiles!creator_id (
+            profiles (
               id,
               name,
               avatar_url
             ),
-            lanes!inner (
+            lanes (
               name
             )
           `)
@@ -146,8 +148,37 @@ export default function Boards() {
           throw tasksError;
         }
 
+        // Comprehensive logging for debugging
+        console.log("=== TASK LOADING DEBUG ===");
+        console.log("Connected user IDs:", allUserIds);
         console.log("Loaded tasks:", allTasks?.length || 0);
-        console.log("Loaded lanes:", boardLanes?.length || 0);
+        console.log("Loaded lanes for current board:", boardLanes?.length || 0);
+        console.log("Task details:", allTasks?.map(t => ({
+          id: t.id,
+          title: t.title,
+          creator: (t as any).profiles?.name || 'Unknown',
+          lane: (t as any).lanes?.name || 'No lane',
+          creator_id: t.creator_id
+        })));
+        console.log("Lane details:", boardLanes?.map(l => ({
+          id: l.id, 
+          name: l.name, 
+          position: l.position
+        })));
+
+        // Verify task-lane mapping
+        const mappedTasks = allTasks?.map(task => {
+          const taskLaneName = (task as any).lanes?.name;
+          const targetLane = boardLanes?.find(lane => lane.name === taskLaneName);
+          return {
+            taskId: task.id,
+            taskTitle: task.title,
+            originalLane: taskLaneName,
+            targetLaneFound: !!targetLane,
+            creator: (task as any).profiles?.name || 'Unknown'
+          };
+        });
+        console.log("Task-Lane mapping:", mappedTasks);
 
         if (!mounted.current) return;
         setTasks(allTasks || []);
