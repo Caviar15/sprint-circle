@@ -266,6 +266,18 @@ export type Database = {
           connected_user_id: string
         }[]
       }
+      get_invitation_by_token: {
+        Args: { invitation_token: string }
+        Returns: {
+          board_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          invited_email: string
+          inviter_id: string
+          status: string
+        }[]
+      }
       get_user_board_ids: {
         Args: { user_uuid: string }
         Returns: {
