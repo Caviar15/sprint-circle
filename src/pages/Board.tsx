@@ -289,10 +289,10 @@ export default function BoardPage() {
     return (
       <div className="container mx-auto py-8">
         <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
         </div>
       </div>
-    )
+    );
   }
 
   if (!board) {
@@ -305,7 +305,7 @@ export default function BoardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              We couldn't find a board for your account. Create one to get started.
+              We couldn’t find a board for your account. Create one to get started.
             </p>
             <div className="mt-6 flex justify-center">
               <Button onClick={() => setCreateBoardDialogOpen(true)}>Create Board</Button>
