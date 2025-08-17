@@ -21,9 +21,23 @@ export default function Login() {
   // Redirect authenticated users directly to their board
   useEffect(() => {
     if (user) {
+      console.log('User authenticated, redirecting to boards:', user.email)
       navigate('/boards', { replace: true })
     }
   }, [user, navigate])
+
+  // Handle auth callback from magic link
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const accessToken = hashParams.get('access_token')
+    
+    if (accessToken) {
+      console.log('Detected auth callback, processing...')
+      // The useAuth hook will handle the actual authentication
+      // Just show a loading state here
+      setLoading(true)
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

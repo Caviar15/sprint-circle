@@ -20,30 +20,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast()
 
   useEffect(() => {
+    let mounted = true
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email)
+        
+        if (!mounted) return
+
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
         
-        if (event === 'SIGNED_IN') {
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('User signed in:', session.user.email)
           toast({
             title: "Welcome!",
             description: "You've been signed in successfully."
           })
         }
+
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('Token refreshed for:', session?.user?.email)
+        }
       }
     )
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+    // Handle URL fragments for magic link authentication
+    const handleAuthCallback = async () => {
+      try {
+        // Check if we have auth tokens in the URL
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = hashParams.get('access_token')
+        
+        if (accessToken) {
+          console.log('Processing auth callback from URL')
+          // Supabase will automatically handle the session from URL fragments
+          // Just trigger a session check
+          const { data: { session }, error } = await supabase.auth.getSession()
+          
+          if (error) {
+            console.error('Error processing auth callback:', error)
+            toast({
+              title: "Authentication Error",
+              description: "Failed to process login. Please try again.",
+              variant: "destructive"
+            })
+          } else if (session && mounted) {
+            console.log('Session established from URL callback')
+            setSession(session)
+            setUser(session.user)
+            setLoading(false)
+            
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname)
+          }
+        } else {
+          // No auth tokens in URL, check for existing session
+          const { data: { session } } = await supabase.auth.getSession()
+          if (mounted) {
+            setSession(session)
+            setUser(session?.user ?? null)
+            setLoading(false)
+          }
+        }
+      } catch (error) {
+        console.error('Error in auth initialization:', error)
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
 
-    return () => subscription.unsubscribe()
+    handleAuthCallback()
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [toast])
 
   const signOut = async () => {
